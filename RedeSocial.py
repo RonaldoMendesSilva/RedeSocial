@@ -1,6 +1,6 @@
 from neo4j import GraphDatabase
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import messagebox, simpledialog
 
 class RedeSocial:
     def __init__(self, uri, usuario, senha):
@@ -36,7 +36,7 @@ class RedeSocial:
 
     def _obter_pessoas(self, tx):
         query = (
-            "MATCH (p:Pessoa) RETURN ID(p) as id, p.nome as nome, p.idade as idade, p.localizacao as localizacao"
+            "MATCH (p:Pessoa) RETURN id(p) as id, p.nome as nome, p.idade as idade, p.localizacao as localizacao"
         )
         return [
             {
@@ -65,7 +65,7 @@ class RedeSocial:
 
     def _remover_pessoa(self, tx, id_pessoa):
         query = (
-            "MATCH (p:Pessoa) WHERE ID(p) = $id_pessoa"
+            "MATCH (p:Pessoa) WHERE id(p) = $id_pessoa "
             "DETACH DELETE p"
         )
         tx.run(query, id_pessoa=id_pessoa)
@@ -76,7 +76,7 @@ class RedeSocial:
 
     def _pesquisar_pessoa(self, tx, nome):
         query = (
-            "MATCH (p:Pessoa {nome: $nome}) RETURN ID(p) as id, p.nome as nome, p.idade as idade, p.localizacao as localizacao"
+            "MATCH (p:Pessoa {nome: $nome}) RETURN id(p) as id, p.nome as nome, p.idade as idade, p.localizacao as localizacao"
         )
         return [
             {
@@ -88,11 +88,6 @@ class RedeSocial:
             for record in tx.run(query, nome=nome)
         ]
 
-    def obter_nomes_pessoas(self):
-        with self._driver.session() as sessao:
-            query = "MATCH (p:Pessoa) RETURN ID(p) as id, p.nome as nome, p.idade as idade, p.localizacao as localizacao"
-            return [(record["id"], record["nome"], record["idade"], record["localizacao"]) for record in sessao.run(query)]
-
 class RedeSocialGUI:
     def __init__(self, root, rede_social):
         self.root = root
@@ -103,11 +98,13 @@ class RedeSocialGUI:
         self.label_nome = tk.Label(root, text="Nome:")
         self.label_idade = tk.Label(root, text="Idade:")
         self.label_localizacao = tk.Label(root, text="Localização:")
+        self.label_id = tk.Label(root, text="ID:")
 
         # Entry Widgets
         self.entry_nome = tk.Entry(root)
         self.entry_idade = tk.Entry(root)
         self.entry_localizacao = tk.Entry(root)
+        self.entry_id = tk.Entry(root)  # Entry field for ID
 
         # Buttons
         self.button_adicionar_pessoa = tk.Button(root, text="1. Adicionar Pessoa", command=self.adicionar_pessoa)
@@ -118,16 +115,10 @@ class RedeSocialGUI:
         self.button_pesquisar_pessoa = tk.Button(root, text="6. Pesquisar Pessoa", command=self.pesquisar_pessoa)
         self.button_sair = tk.Button(root, text="0. Sair", command=root.destroy)
 
-        # Text Widget para exibir a lista de pessoas, amigos e resultados da pesquisa
+        # Text Widget for displaying information
         self.text_lista_pessoas = tk.Text(root, height=10, width=50)
         self.text_lista_amigos = tk.Text(root, height=10, width=30)
         self.text_resultado_pesquisa = tk.Text(root, height=2, width=50)
-
-        # Combobox para escolher pessoa a ser removida
-        self.label_escolher_pessoa = tk.Label(root, text="Escolher Pessoa:")
-        self.combobox_pessoas = ttk.Combobox(root, state="readonly", width=50)  # Ajuste o valor de width conforme necessário
-        self.combobox_pessoas.bind("<<ComboboxSelected>>", self.exibir_info_pessoa)
-        self.atualizar_combobox_pessoas()
 
         # Grid
         self.label_nome.grid(row=0, column=0, sticky=tk.W, pady=5, padx=10)
@@ -136,20 +127,24 @@ class RedeSocialGUI:
         self.entry_idade.grid(row=1, column=1, pady=5, padx=10)
         self.label_localizacao.grid(row=2, column=0, sticky=tk.W, pady=5, padx=10)
         self.entry_localizacao.grid(row=2, column=1, pady=5, padx=10)
-        self.button_adicionar_pessoa.grid(row=3, column=0, columnspan=2, pady=10)
-        self.button_listar_pessoas.grid(row=4, column=0, columnspan=2, pady=10)
-        self.button_adicionar_amizade.grid(row=5, column=0, columnspan=2, pady=10)
-        self.button_visualizar_amigos.grid(row=6, column=0, columnspan=2, pady=10)
-        self.button_remover_pessoa.grid(row=7, column=0, columnspan=2, pady=10)
-        self.button_pesquisar_pessoa.grid(row=8, column=0, columnspan=2, pady=10)
-        self.button_sair.grid(row=9, column=0, columnspan=2, pady=10)
-        self.label_escolher_pessoa.grid(row=10, column=0, sticky=tk.W, pady=5, padx=10)
-        self.combobox_pessoas.grid(row=10, column=1, pady=10, padx=30)
+        self.label_id.grid(row=8, column=0, sticky=tk.W, pady=5, padx=10)
+        self.entry_id.grid(row=8, column=0, pady=5, padx=10)
+
+        botoes = [
+            self.button_adicionar_pessoa, self.button_listar_pessoas,
+            self.button_adicionar_amizade, self.button_visualizar_amigos,
+            self.button_remover_pessoa, self.button_pesquisar_pessoa,
+            self.button_sair
+        ]
+        
+        for i, botao in enumerate(botoes, start=4):
+            botao.grid(row=i, column=1, columnspan=2, pady=10)
+
         self.text_lista_pessoas.grid(row=11, column=0, columnspan=2, pady=10)
         self.text_lista_amigos.grid(row=12, column=0, columnspan=2, pady=20)
         self.text_resultado_pesquisa.grid(row=13, column=0, columnspan=2, pady=10)
 
-        # Defina a orientação da janela para o centro da tela
+        # Set window position to the center of the screen
         largura_janela = root.winfo_reqwidth()
         altura_janela = root.winfo_reqheight()
         largura_tela = root.winfo_screenwidth()
@@ -157,21 +152,6 @@ class RedeSocialGUI:
         pos_x = (largura_tela - largura_janela) // 2
         pos_y = (altura_tela - altura_janela) // 2
         root.geometry(f"+{pos_x}+{pos_y}")
-
-    def atualizar_combobox_pessoas(self):
-        nomes_pessoas = self.rede_social.obter_nomes_pessoas()
-        self.combobox_pessoas["values"] = nomes_pessoas
-
-    def exibir_info_pessoa(self, event):
-        # Função chamada quando o usuário seleciona um item na Combobox
-        nome_selecionado = self.combobox_pessoas.get()
-        pessoa_selecionada = next((pessoa for pessoa in dados_pessoas if pessoa[1] == nome_selecionado), None)
-
-        if pessoa_selecionada:
-            # Pode usar pessoa_selecionada[0] para obter o id e pessoa_selecionada[1] para obter o nome
-            print(f"ID: {pessoa_selecionada[0]}, Nome: {pessoa_selecionada[1]}")
-        else:
-            print("Nenhuma pessoa selecionada.")
 
     def adicionar_pessoa(self):
         nome = self.entry_nome.get()
@@ -191,7 +171,6 @@ class RedeSocialGUI:
             return
 
         self.rede_social.criar_pessoa(nome, idade, localizacao)
-        self.atualizar_combobox_pessoas()
         messagebox.showinfo("Sucesso", "Pessoa adicionada com sucesso!")
         self.entry_nome.delete(0, tk.END)
         self.entry_idade.delete(0, tk.END)
@@ -224,17 +203,22 @@ class RedeSocialGUI:
             messagebox.showinfo("Amigos", f"{nome_pessoa} não tem amigos cadastrados.")
 
     def remover_pessoa(self):
-        pessoa_selecionada = self.combobox_pessoas.get()
-        if not pessoa_selecionada:
-            messagebox.showerror("Erro", "Selecione uma pessoa para remover.")
+        id_pessoa = self.entry_id.get()  # Use the entry_id field for ID
+        if not id_pessoa:
+            messagebox.showerror("Erro", "O campo 'ID' deve ser preenchido para remover uma pessoa.")
             return
 
-        id_pessoa = int(pessoa_selecionada.split(":")[0])
-        resposta = messagebox.askquestion("Confirmar Remoção", f"Tem certeza que deseja remover {pessoa_selecionada}?")
+        try:
+            id_pessoa = int(id_pessoa)
+        except ValueError:
+            messagebox.showerror("Erro", "O ID deve ser um número inteiro.")
+            return
+
+        resposta = messagebox.askquestion("Confirmar Remoção", f"Tem certeza que deseja remover a pessoa com ID {id_pessoa}?")
         if resposta == "yes":
             self.rede_social.remover_pessoa(id_pessoa)
-            self.atualizar_combobox_pessoas()
-            messagebox.showinfo("Sucesso", f"{pessoa_selecionada} removido com sucesso!")
+            messagebox.showinfo("Sucesso", f"Pessoa com ID {id_pessoa} removida com sucesso!")
+            self.entry_id.delete(0, tk.END)  # Clear the ID entry field
             self.entry_nome.delete(0, tk.END)
             self.entry_idade.delete(0, tk.END)
             self.entry_localizacao.delete(0, tk.END)
